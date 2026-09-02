@@ -12,6 +12,7 @@ import {
   Loader,
   AlertCircle,
   CheckCircle,
+  Copy,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -38,12 +39,12 @@ interface MessageData {
 const WhatsAppMessageReport: React.FC = () => {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'delivered' | 'failed' | 'pending'>('all');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [isSendingReport, setIsSendingReport] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [showPhoneInput, setShowPhoneInput] = useState(false);
+  const [copied, setCopied] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const stats: MessageStats = {
@@ -140,74 +141,6 @@ const WhatsAppMessageReport: React.FC = () => {
         throw new Error('Report element not found');
       }
 
-      // Capture the report element
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
-
-      const imgWidth = 210; // A4 width in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      const pdf = new jsPDF('p', 'mm', 'a4');
-
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      const pageHeight = 277; // A4 height in mm
-      const imgData = canvas.toDataURL('image/png');
-
-      // Add multiple pages if needed
-      while (heightLeft > 0) {
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-        if (heightLeft > 0) {
-          pdf.addPage();
-          position = -pageHeight;
-        }
-      }
-
-      // Save the PDF
-      pdf.save(`WhatsApp-Report-${new Date().toISOString().split('T')[0]}.pdf`);
-
-      setSuccessMessage('PDF downloaded successfully! 📄');
-      setShowSuccessMessage(true);
-      setTimeout(() => setShowSuccessMessage(false), 3000);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Failed to generate PDF';
-      setErrorMessage(`Error: ${errorMsg}`);
-      console.error('PDF Generation Error:', error);
-    } finally {
-      setIsGeneratingPDF(false);
-    }
-  };
-
-  // Send Report via WhatsApp
-  const handleSendViaWhatsApp = async () => {
-    try {
-      setIsSendingReport(true);
-      setErrorMessage('');
-
-      if (!phoneNumber.trim()) {
-        setErrorMessage('Please enter a valid phone number');
-        setIsSendingReport(false);
-        return;
-      }
-
-      // Validate phone number format
-      const phoneRegex = /^[\d\s\-\+\(\)]{10,}$/;
-      if (!phoneRegex.test(phoneNumber)) {
-        setErrorMessage('Please enter a valid phone number (e.g., +1234567890 or 1234567890)');
-        setIsSendingReport(false);
-        return;
-      }
-
-      if (!reportRef.current) {
-        throw new Error('Report element not found');
-      }
-
-      // Generate PDF for WhatsApp
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
         useCORS: true,
@@ -234,41 +167,139 @@ const WhatsAppMessageReport: React.FC = () => {
         }
       }
 
-      // Get PDF as blob
-      const pdfBlob = pdf.output('blob');
+      pdf.save(`WhatsApp-Report-${new Date().toISOString().split('T')[0]}.pdf`);
 
-      // Create FormData for file upload
-      const formData = new FormData();
-      formData.append('file', pdfBlob, `WhatsApp-Report-${new Date().toISOString().split('T')[0]}.pdf`);
-      formData.append('phoneNumber', phoneNumber);
-      formData.append('message', 'Here is your WhatsApp Message Report');
+      setSuccessMessage('✅ PDF downloaded successfully! 📄');
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 3000);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to generate PDF';
+      setErrorMessage(`❌ Error: ${errorMsg}`);
+      console.error('PDF Generation Error:', error);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
-      // Send to backend API
-      const response = await fetch('/api/send-whatsapp-report', {
-        method: 'POST',
-        body: formData,
-      });
+  // Open WhatsApp Web with phone number and message
+  const handleOpenWhatsAppWeb = () => {
+    try {
+      setErrorMessage('');
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to send report via WhatsApp');
+      if (!phoneNumber.trim()) {
+        setErrorMessage('❌ Please enter a phone number');
+        return;
       }
 
-      const result = await response.json();
+      // Format phone number for WhatsApp
+      const cleaned = phoneNumber.replace(/\D/g, '');
+      let formattedPhone = cleaned;
 
-      setSuccessMessage(
-        `Report sent successfully to ${phoneNumber}! 📱\nMessage ID: ${result.messageId || 'Generated'}`
-      );
+      if (cleaned.length === 10) {
+        formattedPhone = `1${cleaned}`; // Add US country code
+      }
+
+      // Create WhatsApp message with report summary
+      const reportSummary = `
+📊 *WhatsApp Message Report*
+
+Total Messages: *${stats.totalMessages.toLocaleString()}*
+Delivered: *${stats.deliveredMessages.toLocaleString()}*
+Success Rate: *${stats.successRate}%*
+Failed: *${stats.failedMessages}*
+Pending: *${stats.pendingMessages}*
+
+Average Response Time: *${stats.averageResponseTime}*
+Unique Contacts: *${stats.uniqueContacts.toLocaleString()}*
+
+Generated: ${new Date().toLocaleString()}
+
+📥 Download PDF for detailed breakdown
+      `.trim();
+
+      // Encode message for URL
+      const encodedMessage = encodeURIComponent(reportSummary);
+
+      // Open WhatsApp Web
+      const whatsappURL = `https://web.whatsapp.com/send/?phone=${formattedPhone}&text=${encodedMessage}`;
+      window.open(whatsappURL, '_blank');
+
+      setSuccessMessage('✅ WhatsApp opened! Send the message manually 📱');
       setShowSuccessMessage(true);
       setPhoneNumber('');
       setShowPhoneInput(false);
-      setTimeout(() => setShowSuccessMessage(false), 4000);
+      setTimeout(() => setShowSuccessMessage(false), 3000);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Failed to send report via WhatsApp';
-      setErrorMessage(`Error: ${errorMsg}`);
-      console.error('WhatsApp Send Error:', error);
-    } finally {
-      setIsSendingReport(false);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to open WhatsApp';
+      setErrorMessage(`❌ Error: ${errorMsg}`);
+      console.error('WhatsApp Open Error:', error);
+    }
+  };
+
+  // Open WhatsApp Desktop App
+  const handleOpenWhatsAppDesktop = () => {
+    try {
+      setErrorMessage('');
+
+      if (!phoneNumber.trim()) {
+        setErrorMessage('❌ Please enter a phone number');
+        return;
+      }
+
+      // Format phone number
+      const cleaned = phoneNumber.replace(/\D/g, '');
+      let formattedPhone = cleaned;
+
+      if (cleaned.length === 10) {
+        formattedPhone = `1${cleaned}`;
+      }
+
+      // Open WhatsApp Desktop
+      const whatsappURL = `whatsapp://send?phone=${formattedPhone}`;
+      window.location.href = whatsappURL;
+
+      setSuccessMessage('✅ Opening WhatsApp Desktop... 📱');
+      setShowSuccessMessage(true);
+      setPhoneNumber('');
+      setShowPhoneInput(false);
+      setTimeout(() => setShowSuccessMessage(false), 3000);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to open WhatsApp';
+      setErrorMessage(`❌ Error: ${errorMsg}`);
+    }
+  };
+
+  // Copy report text to clipboard
+  const handleCopyReportText = async () => {
+    try {
+      const reportSummary = `
+📊 WhatsApp Message Report
+
+Total Messages: ${stats.totalMessages.toLocaleString()}
+Delivered: ${stats.deliveredMessages.toLocaleString()}
+Success Rate: ${stats.successRate}%
+Failed: ${stats.failedMessages}
+Pending: ${stats.pendingMessages}
+
+Average Response Time: ${stats.averageResponseTime}
+Unique Contacts: ${stats.uniqueContacts.toLocaleString()}
+
+Generated: ${new Date().toLocaleString()}
+
+Download PDF for detailed breakdown
+      `.trim();
+
+      await navigator.clipboard.writeText(reportSummary);
+
+      setCopied(true);
+      setSuccessMessage('✅ Report text copied to clipboard! 📋');
+      setShowSuccessMessage(true);
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+        setCopied(false);
+      }, 2000);
+    } catch (error) {
+      setErrorMessage('❌ Failed to copy text');
     }
   };
 
@@ -278,9 +309,7 @@ const WhatsAppMessageReport: React.FC = () => {
       {showSuccessMessage && (
         <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 z-50 animate-bounce">
           <CheckCircle className="w-5 h-5" />
-          <div>
-            <p className="font-bold">{successMessage}</p>
-          </div>
+          <p className="font-bold">{successMessage}</p>
         </div>
       )}
 
@@ -305,9 +334,9 @@ const WhatsAppMessageReport: React.FC = () => {
       {showPhoneInput && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h3 className="text-xl font-black text-slate-900 mb-4">Send Report via WhatsApp</h3>
-            <p className="text-slate-600 text-sm mb-4">Enter the phone number where you want to send the report</p>
-            
+            <h3 className="text-xl font-black text-slate-900 mb-4">📱 Send Report via WhatsApp</h3>
+            <p className="text-slate-600 text-sm mb-4">Enter the phone number to send the report</p>
+
             <input
               type="tel"
               placeholder="+1 (234) 567-8900"
@@ -316,37 +345,36 @@ const WhatsAppMessageReport: React.FC = () => {
               className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-green-500 mb-4 font-medium"
             />
 
-            <p className="text-xs text-slate-500 mb-4">
-              Format: Country code + phone number (e.g., +1234567890)
+            <p className="text-xs text-slate-500 mb-6">
+              Format: +1234567890 or 1234567890 (US numbers automatically formatted)
             </p>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleOpenWhatsAppWeb}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold rounded-lg hover:from-green-700 hover:to-green-800 transition flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Open WhatsApp Web
+              </button>
+
+              <button
+                onClick={handleOpenWhatsAppDesktop}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-700 to-green-800 text-white font-bold rounded-lg hover:from-green-800 hover:to-green-900 transition flex items-center justify-center gap-2"
+              >
+                <Send className="w-5 h-5" />
+                Open WhatsApp Desktop
+              </button>
+
               <button
                 onClick={() => {
                   setShowPhoneInput(false);
                   setPhoneNumber('');
                   setErrorMessage('');
                 }}
-                className="flex-1 px-4 py-3 bg-slate-200 text-slate-900 font-bold rounded-lg hover:bg-slate-300 transition"
+                className="w-full px-4 py-3 bg-slate-200 text-slate-900 font-bold rounded-lg hover:bg-slate-300 transition"
               >
                 Cancel
-              </button>
-              <button
-                onClick={handleSendViaWhatsApp}
-                disabled={isSendingReport}
-                className="flex-1 px-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isSendingReport ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Send
-                  </>
-                )}
               </button>
             </div>
           </div>
@@ -484,7 +512,7 @@ const WhatsAppMessageReport: React.FC = () => {
           ) : (
             <>
               <Download className="w-5 h-5" />
-              Download PDF Report
+              📥 Download PDF
             </>
           )}
         </button>
@@ -494,14 +522,22 @@ const WhatsAppMessageReport: React.FC = () => {
           className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-6 py-4 rounded-lg font-bold text-sm md:text-base transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
         >
           <Share2 className="w-5 h-5" />
-          Send via WhatsApp
+          📱 Send via WhatsApp
+        </button>
+
+        <button
+          onClick={handleCopyReportText}
+          className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-4 rounded-lg font-bold text-sm md:text-base transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+        >
+          <Copy className="w-5 h-5" />
+          📋 Copy Text
         </button>
       </div>
 
       {/* Footer Info */}
       <div className="text-center">
         <p className="text-slate-400 text-xs md:text-sm font-medium">
-          📄 All data is ready to download or share • ✓ No slides required
+          ✅ Download PDF • 📱 Open WhatsApp Web/Desktop • 📋 Copy & Paste • No slides required
         </p>
       </div>
     </div>
