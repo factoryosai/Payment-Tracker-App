@@ -108,7 +108,8 @@ export function Payments() {
           </div>
         </div>
         
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
@@ -159,6 +160,47 @@ export function Payments() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {filteredPayments.map((payment) => {
+            const party = parties.find(p => p.id === payment.party_id);
+            return (
+              <div key={payment.id} className="p-4 bg-white hover:bg-slate-50 transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-900">{party?.party_name || 'Unknown'}</h3>
+                    <p className="text-sm text-slate-500">{formatDate(payment.payment_date)}</p>
+                  </div>
+                  <span className="text-base font-bold text-emerald-600">
+                    +{formatCurrency(payment.amount)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-50">
+                  <span className="text-sm font-medium text-slate-600 capitalize bg-slate-100 px-2.5 py-1 rounded-md">
+                    {payment.payment_mode}
+                  </span>
+                  
+                  {profile?.role === 'admin' && (
+                    <div className="flex space-x-2">
+                      <button onClick={() => setEditingPayment(payment)} className="p-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100">
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => handleDeletePayment(payment.id)} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {filteredPayments.length === 0 && (
+            <div className="p-8 text-center text-sm text-slate-500">
+              No payments found.
+            </div>
+          )}
         </div>
       </div>
 

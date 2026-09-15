@@ -81,10 +81,15 @@ export function Reports() {
     doc.text(`Payment & Sales Tracker - ${reportType.toUpperCase()} REPORT`, 14, 15);
     doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 22);
     
+    // Only include visible columns (exclude internal fields like rawOut)
+    const visibleKeys = tableHeaders.length;
     autoTable(doc, {
       startY: 30,
       head: [tableHeaders],
-      body: reportData.map(Object.values).map(v => v.slice(0, tableHeaders.length)),
+      body: reportData.map(row => {
+        const values = Object.values(row);
+        return values.slice(0, visibleKeys);
+      }),
       styles: { fontSize: 9 },
       headStyles: { fillColor: [79, 70, 229] } // indigo-600
     });
@@ -97,13 +102,24 @@ export function Reports() {
   };
 
   const shareWhatsApp = () => {
-    let text = `*Payment & Sales Tracker - ${reportType.toUpperCase()} REPORT*\n\n`;
+    let text = `*Payment & Sales Tracker - ${reportType.toUpperCase()} REPORT*\n`;
+    text += `Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}\n\n`;
+
+    // Add header row
+    text += tableHeaders.join(' | ') + '\n';
+    text += '─'.repeat(40) + '\n';
+
     reportData.forEach(row => {
       const values = Object.values(row).slice(0, tableHeaders.length);
       text += values.join(' | ') + '\n';
     });
+
+    if (reportData.length === 0) {
+      text += 'No data available.\n';
+    }
+
     const encoded = encodeURIComponent(text);
-    window.open(`https://wa.me/917069525795?text=${encoded}`, '_blank');
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
   };
 
   return (
@@ -140,7 +156,8 @@ export function Reports() {
 
       {/* Printable Area */}
       <div className="bg-white shadow-sm rounded-2xl border border-slate-100 overflow-hidden" id="printable-area">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
@@ -153,7 +170,7 @@ export function Reports() {
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
               {reportData.map((row, idx) => (
-                <tr key={idx}>
+                <tr key={idx} className="hover:bg-slate-50 transition-colors">
                   {Object.values(row).slice(0, tableHeaders.length).map((val: any, j) => (
                     <td key={j} className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                       {val}
@@ -170,6 +187,28 @@ export function Reports() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {reportData.map((row, idx) => {
+            const values = Object.values(row).slice(0, tableHeaders.length);
+            return (
+              <div key={idx} className="p-4 bg-white hover:bg-slate-50 transition-colors space-y-2">
+                {tableHeaders.map((h, j) => (
+                  <div key={j} className="flex justify-between items-center py-1 border-b border-slate-50 last:border-0">
+                    <span className="text-slate-500 text-xs font-medium uppercase tracking-wider">{h}</span>
+                    <span className="font-semibold text-slate-900 text-sm text-right">{values[j] as string}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+          {reportData.length === 0 && (
+            <div className="p-8 text-center text-sm text-slate-500">
+              No data available for this report.
+            </div>
+          )}
         </div>
       </div>
     </div>

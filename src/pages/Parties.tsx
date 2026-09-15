@@ -106,7 +106,8 @@ export function Parties() {
           </div>
         </div>
         
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
@@ -163,6 +164,57 @@ export function Parties() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {filteredParties.map((party) => (
+            <div key={party.id} className="p-4 bg-white hover:bg-slate-50 transition-colors">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">{party.party_name}</h3>
+                  <p className="text-sm text-slate-500">{party.mobile}</p>
+                </div>
+                <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${
+                  party.status === 'CLEAR' ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' :
+                  party.status === 'DUE' ? 'bg-amber-50 text-amber-700 ring-amber-600/20' :
+                  'bg-red-50 text-red-700 ring-red-600/20'
+                }`}>
+                  {party.status}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
+                <div>
+                  <p className="text-slate-500 text-xs">Total Bills</p>
+                  <p className="font-medium text-slate-900">{party.totalBills}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs">Oldest Due</p>
+                  <p className="font-medium text-slate-900">{party.oldestDueDays > 0 ? `${party.oldestDueDays} days` : '-'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs">Outstanding</p>
+                  <p className="font-semibold text-rose-600">{formatCurrency(party.outstanding)}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs">Advance</p>
+                  <p className="font-medium text-emerald-600">{party.advance_balance > 0 ? formatCurrency(party.advance_balance) : '-'}</p>
+                </div>
+              </div>
+              
+              <div className="mt-4 pt-3 border-t border-slate-50 flex justify-end">
+                <Link to={`/parties/${party.id}`} className="inline-flex items-center text-sm font-medium text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
+                  View Ledger <ChevronRight className="h-4 w-4 ml-1" />
+                </Link>
+              </div>
+            </div>
+          ))}
+          {filteredParties.length === 0 && (
+            <div className="p-8 text-center text-sm text-slate-500">
+              No parties found.
+            </div>
+          )}
         </div>
       </div>
 
