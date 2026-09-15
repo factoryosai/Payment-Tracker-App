@@ -14,6 +14,7 @@ import { PartyLedger } from './pages/PartyLedger';
 import { Bills } from './pages/Bills';
 import { Payments } from './pages/Payments';
 import { Reports } from './pages/Reports';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 
 function PrivateRoute({ children, requireAdmin }: { children: React.ReactNode, requireAdmin?: boolean }) {
   const { profile } = useAuth();
@@ -40,6 +41,7 @@ function AppRoutes() {
           <Route path="reports" element={<Reports />} />
         </Route>
       </Routes>
+      <PWAInstallPrompt />
     </Router>
   );
 }
